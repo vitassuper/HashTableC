@@ -1,45 +1,38 @@
 #ifndef HASHTABLE_H
 #define HASHTABLE_H
 
-#define INIT_CAPACITY 4
-
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define INIT_SIZE 4
 
 typedef struct {
   char *key;
   void *value;
-} HashTableEntry;
+} HashTableItem;
 
-typedef struct HashTableNode {
-  struct HashTableNode *next_node;
-  HashTableEntry *entry;
+typedef struct Node {
+  HashTableItem *item;
+  struct Node *next;
 } HashTableNode;
 
 typedef struct {
-  HashTableNode **values;
-  size_t capacity;
+  size_t size;
   size_t length;
+  HashTableNode **elements;
 } HashTable;
 
-unsigned long hash(const char *str);
+HashTable *hash_table_init();
+bool hash_table_insert(HashTable *ht, char *key, void *value);
+void *hash_table_get(HashTable *ht, char *key);
+bool hash_table_has(HashTable *ht, char *key);
+HashTableItem **hash_table_items(HashTable *ht);
+void hash_table_print(HashTable *ht);
+void hash_table_remove(HashTable *ht, char *key); // tood
+void hash_table_clear(HashTable *ht);             // todo
+void hash_table_free(HashTable *ht);
 
-HashTable *new_hash_table();
-
-void resize(HashTable *hash_table, size_t capacity);
-void destroy_hash_table(HashTable *hash_table);
-void clear(HashTable *hash_table);
-void remove_key_value(HashTable *hash_table, const char *key);
-void insert_key_value(HashTable *hash_table, const char *key, void *value);
-void *get_value(HashTable *hash_table, const char *key);
-HashTableEntry **get_entries(HashTable *hash_table);
-char **get_keys(HashTable *hash_table);
-bool has_key(HashTable *hash_table, const char *key);
-
-HashTableNode *init_new_node();
-HashTableNode *create_new_node(const char *key, void *value);
-HashTableNode *get_node(HashTable *hash_table, const char *key);
-void destroy_node(HashTableNode *node);
-void destroy_node_chain(HashTableNode *node);
-
-#endif
+#endif /* HASHTABLE_H */
