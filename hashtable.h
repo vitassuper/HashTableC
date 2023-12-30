@@ -16,18 +16,18 @@ typedef struct {
   size_t length;
 } HashTable;
 
-unsigned long hash(char *str);
+unsigned long hash(const char *str);
 
 HashTable *new_hash_table();
 void destroy_hash_table(HashTable *hash_table);
-void remove_key_value(HashTable *hash_table, char *key);
-void insert_key_value(HashTable *hash_table, char *key, void *value);
-void *get_value(HashTable *hash_table, char *key);
+void remove_key_value(HashTable *hash_table, const char *key);
+void insert_key_value(HashTable *hash_table, const char *key, void *value);
+void *get_value(HashTable *hash_table, const char *key);
 char **get_keys(HashTable *hash_table);
-bool has_key(HashTable *hash_table, char *key);
+bool has_key(HashTable *hash_table, const char *key);
 
-HashTableNode *create_new_node(char *key, void *value);
-HashTableNode *get_node(HashTable *hash_table, char *key);
+HashTableNode *create_new_node(const char *key, void *value);
+HashTableNode *get_node(HashTable *hash_table, const char *key);
 void destroy_node(HashTableNode *node);
 void destroy_node_chain(HashTableNode *node);
 

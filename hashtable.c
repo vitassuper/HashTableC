@@ -44,7 +44,7 @@ void destroy_node_chain(HashTableNode *node) {
   }
 }
 
-void remove_key_value(HashTable *hash_table, char *key) {
+void remove_key_value(HashTable *hash_table, const char *key) {
   unsigned long hash_number = hash(key);
   size_t index = hash_number % hash_table->capacity;
 
@@ -75,7 +75,7 @@ void remove_key_value(HashTable *hash_table, char *key) {
   }
 }
 
-void insert_key_value(HashTable *hash_table, char *key, void *value) {
+void insert_key_value(HashTable *hash_table, const char *key, void *value) {
   unsigned long hash_number = hash(key);
   size_t index = hash_number % hash_table->capacity;
 
@@ -103,7 +103,7 @@ void insert_key_value(HashTable *hash_table, char *key, void *value) {
   }
 }
 
-HashTableNode *create_new_node(char *key, void *value) {
+HashTableNode *create_new_node(const char *key, void *value) {
   HashTableNode *new_node = (HashTableNode *)malloc(sizeof(HashTableNode));
   new_node->next_node = NULL;
 
@@ -133,7 +133,7 @@ char **get_keys(HashTable *hash_table) {
   return keys;
 }
 
-HashTableNode *get_node(HashTable *hash_table, char *key) {
+HashTableNode *get_node(HashTable *hash_table, const char *key) {
   unsigned long hash_number = hash(key);
   size_t index = hash_number % hash_table->capacity;
 
@@ -150,7 +150,7 @@ HashTableNode *get_node(HashTable *hash_table, char *key) {
   return NULL;
 }
 
-bool has_key(HashTable *hash_table, char *key) {
+bool has_key(HashTable *hash_table, const char *key) {
   if (get_node(hash_table, key)) {
     return true;
   }
@@ -158,7 +158,7 @@ bool has_key(HashTable *hash_table, char *key) {
   return false;
 }
 
-void *get_value(HashTable *hash_table, char *key) {
+void *get_value(HashTable *hash_table, const char *key) {
   HashTableNode *node = get_node(hash_table, key);
 
   if (node) {
@@ -169,7 +169,7 @@ void *get_value(HashTable *hash_table, char *key) {
 }
 
 // djb2 hash function
-unsigned long hash(char *str) {
+unsigned long hash(const char *str) {
   unsigned long hash = 5381;
   int c;
 
