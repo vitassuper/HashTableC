@@ -23,4 +23,6 @@ See main.c file
 
 ## TODO
 
-- [ ] **Fix Capacity Issue:** Currently, there might be a capacity limitation in the HashTable implementation. Investigate and resolve any issues related to capacity constraints to ensure scalability and efficient usage.
+- [x] **Fix Capacity Issue:** Currently, there might be a capacity limitation in the HashTable implementation. Investigate and resolve any issues related to capacity constraints to ensure scalability and efficient usage.
+
+- [ ] Review `hashtable.c` for code duplication, readability, and efficiency and refactor

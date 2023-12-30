@@ -1,9 +1,8 @@
 #include "hashtable.h"
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define INIT_CAPACITY 5
 
 HashTable *new_hash_table() {
   HashTable *hash_table = (HashTable *)malloc(sizeof(HashTable));
@@ -14,6 +13,65 @@ HashTable *new_hash_table() {
   hash_table->length = 0;
 
   return hash_table;
+}
+
+void resize(HashTable *hash_table, size_t capacity) {
+  HashTableNode **values = malloc(sizeof(HashTableNode *) * capacity);
+  HashTableEntry **entries = get_entries(hash_table);
+
+  for (size_t i = 0; i < hash_table->length; i++) {
+    unsigned long hash_number = hash(entries[i]->key);
+    size_t index = hash_number % capacity;
+
+    HashTableNode *existed_node = values[index];
+    HashTableNode *new_node = (HashTableNode *)malloc(sizeof(HashTableNode));
+
+    new_node->entry = entries[i];
+
+    if (existed_node) {
+      HashTableNode *prev = NULL;
+
+      do {
+        prev = existed_node;
+      } while ((existed_node = existed_node->next_node));
+
+      prev->next_node = new_node;
+    } else {
+      values[index] = new_node;
+    }
+  }
+
+  for (size_t i = 0; i < hash_table->capacity; i++) {
+    HashTableNode *node = hash_table->values[i];
+    HashTableNode *next_node;
+
+    while (node) {
+      next_node = node->next_node;
+      free(node);
+      node = next_node;
+    }
+  }
+
+  free(entries);
+  free(hash_table->values);
+  hash_table->values = values;
+  hash_table->capacity = capacity;
+}
+
+void clear(HashTable *hash_table) {
+  for (size_t i = 0; i < hash_table->capacity; i++) {
+    HashTableNode *node = hash_table->values[i];
+
+    if (node) {
+      destroy_node_chain(node);
+    }
+  }
+
+  free(hash_table->values);
+  hash_table->values =
+      (HashTableNode **)malloc(sizeof(HashTableNode *) * INIT_CAPACITY);
+  hash_table->capacity = INIT_CAPACITY;
+  hash_table->length = 0;
 }
 
 void destroy_hash_table(HashTable *hash_table) {
@@ -30,7 +88,8 @@ void destroy_hash_table(HashTable *hash_table) {
 }
 
 void destroy_node(HashTableNode *node) {
-  free(node->key);
+  free(node->entry->key);
+  free(node->entry);
   free(node);
 }
 
@@ -57,7 +116,7 @@ void remove_key_value(HashTable *hash_table, const char *key) {
   HashTableNode *prev = NULL;
 
   while (node) {
-    if (strcmp(node->key, key) == 0) {
+    if (strcmp(node->entry->key, key) == 0) {
       if (!prev) {
         hash_table->values[index] = node->next_node;
       } else {
@@ -75,41 +134,70 @@ void remove_key_value(HashTable *hash_table, const char *key) {
   }
 }
 
+HashTableEntry **get_entries(HashTable *hash_table) {
+  HashTableEntry **entries =
+      (HashTableEntry **)malloc(sizeof(HashTableEntry *) * hash_table->length);
+  size_t index = 0;
+
+  for (size_t i = 0; i < hash_table->capacity; i++) {
+    HashTableNode *node = hash_table->values[i];
+
+    while (node) {
+      entries[index++] = node->entry;
+      node = node->next_node;
+    }
+  }
+
+  return entries;
+}
+
 void insert_key_value(HashTable *hash_table, const char *key, void *value) {
+  if (hash_table->capacity * 0.7 < hash_table->length + 1) {
+    resize(hash_table, hash_table->capacity * 2);
+  }
+
   unsigned long hash_number = hash(key);
   size_t index = hash_number % hash_table->capacity;
 
-  HashTableNode *node = hash_table->values[index];
+  HashTableNode *existed_node = hash_table->values[index];
+  HashTableNode *new_node = create_new_node(key, value);
 
-  if (node) {
+  if (existed_node) {
     HashTableNode *prev = NULL;
 
     do {
-      prev = node;
+      prev = existed_node;
 
-      if (strcmp(prev->key, key) == 0) {
-        prev->value = value;
+      if (strcmp(prev->entry->key, key) == 0) {
+        prev->entry->value = value;
 
         return;
       }
-    } while ((node = node->next_node));
+    } while ((existed_node = existed_node->next_node));
 
-    prev->next_node = create_new_node(key, value);
-    hash_table->length++;
-
+    prev->next_node = new_node;
   } else {
-    hash_table->values[index] = create_new_node(key, value);
-    hash_table->length++;
+    hash_table->values[index] = new_node;
   }
+
+  hash_table->length++;
+}
+
+HashTableNode *init_new_node() {
+  HashTableNode *new_node = (HashTableNode *)malloc(sizeof(HashTableNode));
+  HashTableEntry *new_entry = (HashTableEntry *)malloc(sizeof(HashTableEntry));
+  new_node->next_node = NULL;
+  new_node->entry = new_entry;
+
+  return new_node;
 }
 
 HashTableNode *create_new_node(const char *key, void *value) {
-  HashTableNode *new_node = (HashTableNode *)malloc(sizeof(HashTableNode));
-  new_node->next_node = NULL;
+  HashTableNode *new_node = init_new_node();
 
-  new_node->key = (char *)malloc(sizeof(char) * (strlen(key) + 1));
-  strcpy(new_node->key, key);
-  new_node->value = value;
+  new_node->entry->key = (char *)malloc(sizeof(char) * (strlen(key) + 1));
+  strcpy(new_node->entry->key, key);
+  new_node->entry->value = value;
 
   return new_node;
 }
@@ -125,7 +213,7 @@ char **get_keys(HashTable *hash_table) {
 
     if (node) {
       do {
-        keys[index++] = node->key;
+        keys[index++] = node->entry->key;
       } while ((node = node->next_node));
     }
   }
@@ -141,7 +229,7 @@ HashTableNode *get_node(HashTable *hash_table, const char *key) {
 
   if (node) {
     do {
-      if (strcmp(node->key, key) == 0) {
+      if (strcmp(node->entry->key, key) == 0) {
         return node;
       }
     } while ((node = node->next_node));
@@ -162,7 +250,7 @@ void *get_value(HashTable *hash_table, const char *key) {
   HashTableNode *node = get_node(hash_table, key);
 
   if (node) {
-    return node->value;
+    return node->entry->value;
   }
 
   return NULL;
