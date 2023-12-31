@@ -4,13 +4,82 @@
 #include <stdlib.h>
 #include <string.h>
 
-HashTable *new_hash_table() {
-  HashTable *hash_table = (HashTable *)malloc(sizeof(HashTable));
+// Internal functions
 
+// djb2 hash function
+static unsigned long hash(const char *str) {
+  unsigned long hash = 5381;
+  int c;
+
+  while ((c = *str++))
+    hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+  return hash;
+}
+
+static void init_hash_table(HashTable *hash_table) {
   hash_table->capacity = INIT_CAPACITY;
   hash_table->values =
       (HashTableNode **)malloc(sizeof(HashTableNode *) * INIT_CAPACITY);
   hash_table->length = 0;
+}
+
+static HashTableNode *init_new_node() {
+  HashTableNode *new_node = (HashTableNode *)malloc(sizeof(HashTableNode));
+  HashTableEntry *new_entry = (HashTableEntry *)malloc(sizeof(HashTableEntry));
+  new_node->next_node = NULL;
+  new_node->entry = new_entry;
+
+  return new_node;
+}
+
+static HashTableNode *create_new_node(const char *key, void *value) {
+  HashTableNode *new_node = init_new_node();
+
+  new_node->entry->key = (char *)malloc(sizeof(char) * (strlen(key) + 1));
+  strcpy(new_node->entry->key, key);
+  new_node->entry->value = value;
+
+  return new_node;
+}
+
+static HashTableNode *get_node(HashTable *hash_table, const char *key) {
+  unsigned long hash_number = hash(key);
+  size_t index = hash_number % hash_table->capacity;
+
+  HashTableNode *node = hash_table->values[index];
+
+  while (node) {
+    if (strcmp(node->entry->key, key) == 0) {
+      return node;
+    }
+
+    node = node->next_node;
+  }
+
+  return NULL;
+}
+
+static void destroy_node(HashTableNode *node) {
+  free(node->entry->key);
+  free(node->entry);
+  free(node);
+}
+
+static void destroy_node_chain(HashTableNode *node) {
+  HashTableNode *next_node;
+
+  while (node) {
+    next_node = node->next_node;
+    destroy_node(node);
+    node = next_node;
+  }
+}
+// End Internal functions
+
+HashTable *new_hash_table() {
+  HashTable *hash_table = (HashTable *)malloc(sizeof(HashTable));
+  init_hash_table(hash_table);
 
   return hash_table;
 }
@@ -23,22 +92,14 @@ void resize(HashTable *hash_table, size_t capacity) {
     unsigned long hash_number = hash(entries[i]->key);
     size_t index = hash_number % capacity;
 
-    HashTableNode *existed_node = values[index];
-    HashTableNode *new_node = (HashTableNode *)malloc(sizeof(HashTableNode));
+    HashTableNode **existed_node = &(values[index]);
 
-    new_node->entry = entries[i];
-
-    if (existed_node) {
-      HashTableNode *prev = NULL;
-
-      do {
-        prev = existed_node;
-      } while ((existed_node = existed_node->next_node));
-
-      prev->next_node = new_node;
-    } else {
-      values[index] = new_node;
+    while (*existed_node) {
+      existed_node = &((*existed_node)->next_node);
     }
+
+    *existed_node = (HashTableNode *)malloc(sizeof(HashTableNode));
+    (*existed_node)->entry = entries[i];
   }
 
   for (size_t i = 0; i < hash_table->capacity; i++) {
@@ -68,10 +129,7 @@ void clear(HashTable *hash_table) {
   }
 
   free(hash_table->values);
-  hash_table->values =
-      (HashTableNode **)malloc(sizeof(HashTableNode *) * INIT_CAPACITY);
-  hash_table->capacity = INIT_CAPACITY;
-  hash_table->length = 0;
+  init_hash_table(hash_table);
 }
 
 void destroy_hash_table(HashTable *hash_table) {
@@ -85,22 +143,6 @@ void destroy_hash_table(HashTable *hash_table) {
 
   free(hash_table->values);
   free(hash_table);
-}
-
-void destroy_node(HashTableNode *node) {
-  free(node->entry->key);
-  free(node->entry);
-  free(node);
-}
-
-void destroy_node_chain(HashTableNode *node) {
-  HashTableNode *next_node;
-
-  while (node) {
-    next_node = node->next_node;
-    destroy_node(node);
-    node = next_node;
-  }
 }
 
 void remove_key_value(HashTable *hash_table, const char *key) {
@@ -159,83 +201,37 @@ void insert_key_value(HashTable *hash_table, const char *key, void *value) {
   unsigned long hash_number = hash(key);
   size_t index = hash_number % hash_table->capacity;
 
-  HashTableNode *existed_node = hash_table->values[index];
-  HashTableNode *new_node = create_new_node(key, value);
+  HashTableNode **current_node = &(hash_table->values[index]);
 
-  if (existed_node) {
-    HashTableNode *prev = NULL;
+  while (*current_node) {
+    if (strcmp((*current_node)->entry->key, key) == 0) {
+      (*current_node)->entry->value = value;
 
-    do {
-      prev = existed_node;
+      return;
+    }
 
-      if (strcmp(prev->entry->key, key) == 0) {
-        prev->entry->value = value;
-
-        return;
-      }
-    } while ((existed_node = existed_node->next_node));
-
-    prev->next_node = new_node;
-  } else {
-    hash_table->values[index] = new_node;
+    current_node = &((*current_node)->next_node);
   }
 
+  *current_node = create_new_node(key, value);
   hash_table->length++;
 }
 
-HashTableNode *init_new_node() {
-  HashTableNode *new_node = (HashTableNode *)malloc(sizeof(HashTableNode));
-  HashTableEntry *new_entry = (HashTableEntry *)malloc(sizeof(HashTableEntry));
-  new_node->next_node = NULL;
-  new_node->entry = new_entry;
-
-  return new_node;
-}
-
-HashTableNode *create_new_node(const char *key, void *value) {
-  HashTableNode *new_node = init_new_node();
-
-  new_node->entry->key = (char *)malloc(sizeof(char) * (strlen(key) + 1));
-  strcpy(new_node->entry->key, key);
-  new_node->entry->value = value;
-
-  return new_node;
-}
-
 char **get_keys(HashTable *hash_table) {
-  size_t length = hash_table->length;
-
-  char **keys = (char **)malloc(sizeof(char *) * length);
+  char **keys = (char **)malloc(sizeof(char *) * hash_table->length);
   size_t index = 0;
 
   for (size_t i = 0; i < hash_table->capacity; i++) {
     HashTableNode *node = hash_table->values[i];
 
-    if (node) {
-      do {
-        keys[index++] = node->entry->key;
-      } while ((node = node->next_node));
+    while (node) {
+      keys[index++] = node->entry->key;
+
+      node = node->next_node;
     }
   }
 
   return keys;
-}
-
-HashTableNode *get_node(HashTable *hash_table, const char *key) {
-  unsigned long hash_number = hash(key);
-  size_t index = hash_number % hash_table->capacity;
-
-  HashTableNode *node = hash_table->values[index];
-
-  if (node) {
-    do {
-      if (strcmp(node->entry->key, key) == 0) {
-        return node;
-      }
-    } while ((node = node->next_node));
-  }
-
-  return NULL;
 }
 
 bool has_key(HashTable *hash_table, const char *key) {
@@ -254,15 +250,4 @@ void *get_value(HashTable *hash_table, const char *key) {
   }
 
   return NULL;
-}
-
-// djb2 hash function
-unsigned long hash(const char *str) {
-  unsigned long hash = 5381;
-  int c;
-
-  while ((c = *str++))
-    hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-
-  return hash;
 }
